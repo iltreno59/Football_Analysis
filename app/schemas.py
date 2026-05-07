@@ -89,7 +89,7 @@ class PlayerBase(BaseModel):
     player_name: str
     birth_date: Optional[date] = None
     national_team: Optional[str] = None
-    position: Optional[str] = Field(None, max_length=3)
+    position: Optional[str] = None
     team_id: int
 
 class PlayerCreate(PlayerBase):

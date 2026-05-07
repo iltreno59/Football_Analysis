@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, Date, Numeric, ForeignKey, SmallInteger, DateTime
 from sqlalchemy.orm import relationship, declarative_base
 from datetime import datetime
-from .db_conn import Base
+from .core.db_conn import Base
 
 class League(Base):
     __tablename__ = "league"
@@ -41,7 +41,7 @@ class Player(Base):
     player_name = Column(Text, nullable=False)
     birth_date = Column(Date)
     national_team = Column(Text)
-    position = Column(String(3))
+    position = Column(Text)
     team_id = Column(Integer, ForeignKey("team.team_id"))
     
     team = relationship("Team", back_populates="players")

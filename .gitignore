@@ -12,3 +12,4 @@ env/
 .idea/
 
 *.log
+downloaded_files/
