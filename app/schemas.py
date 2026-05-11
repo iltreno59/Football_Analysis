@@ -48,8 +48,6 @@ class ExerciseBase(BaseModel):
     exercise_name: str
     exercise_description: Optional[str] = None
     difficulty: Optional[int] = None # SmallInteger в моделях
-    recomended_duration: Optional[int] = None
-    recomended_reps: Optional[int] = None
 
 class ExerciseCreate(ExerciseBase):
     pass

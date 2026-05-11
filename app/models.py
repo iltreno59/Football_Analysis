@@ -110,8 +110,6 @@ class Exercise(Base):
     exercise_name = Column(Text, nullable=False)
     exercise_description = Column(Text)
     difficulty = Column(SmallInteger)
-    recomended_duration = Column(Integer)
-    recomended_reps = Column(Integer)
     
     exercise_for_metrics = relationship("ExerciseForMetric", back_populates="exercise")
     exercise_in_reports = relationship("ExerciseInReport", back_populates="exercise")
