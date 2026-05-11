@@ -5,7 +5,6 @@ import pandas as pd
 
 def rebuild_metrics():
     db = SessionLocal()
-    # Только те разделы, которые разрешила библиотека в твоем логе
     stat_types = ['standard', 'keeper', 'shooting', 'playing_time', 'misc']
     
     fbref = sd.FBref(leagues=['ENG-Premier League'], seasons='2324')
