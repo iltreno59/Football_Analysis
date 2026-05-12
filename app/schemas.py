@@ -112,15 +112,15 @@ class SeasonMetric(SeasonMetricBase, BaseSchema):
     metric: Optional[Metric] = None
 
 # --- ROLE (Тактические роли) ---
-class RoleBase(BaseModel):
+class RolesBase(BaseModel):
     role_name: str
     zone: Optional[str] = Field(None, max_length=3)
     role_description: Optional[str] = None
 
-class RoleCreate(RoleBase):
+class RolesCreate(RolesBase):
     pass
 
-class Role(RoleBase, BaseSchema):
+class Roles(RolesBase, BaseSchema):
     role_id: int
 
 # --- BENCHMARK (Эталоны) ---
@@ -148,7 +148,7 @@ class ClusterAnalysisCreate(ClusterAnalysisBase):
 
 class ClusterAnalysis(ClusterAnalysisBase, BaseSchema):
     analysis_id: int
-    role: Optional[Role] = None
+    roles: Optional[Roles] = None
 
 # --- ПРОСЛОЙКА УПРАЖНЕНИЕ-ОТЧЕТ ---
 class ExerciseInReportBase(BaseModel):

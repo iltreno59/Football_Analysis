@@ -71,36 +71,36 @@ class SeasonMetric(Base):
     metric = relationship("Metric", back_populates="season_metrics")
     player = relationship("Player", back_populates="season_metrics")
 
-class Role(Base):
-    __tablename__ = "role"
+class Roles(Base):
+    __tablename__ = "roles"
     role_id = Column(Integer, primary_key=True)
     role_name = Column(Text, nullable=False)
     zone = Column(String(3))
     role_description = Column(Text)
     
-    cluster_analyses = relationship("ClusterAnalysis", back_populates="role")
-    benchmarks = relationship("Benchmark", back_populates="role")
+    cluster_analyses = relationship("ClusterAnalysis", back_populates="roles")
+    benchmarks = relationship("Benchmark", back_populates="roles")
 
 class ClusterAnalysis(Base):
     __tablename__ = "cluster_analysis"
     analysis_id = Column(Integer, primary_key=True)
     player_id = Column(Integer, ForeignKey("player.player_id"))
-    role_id = Column(Integer, ForeignKey("role.role_id"))
+    role_id = Column(Integer, ForeignKey("roles.role_id"))
     trust_score = Column(Numeric(4, 2))
     
     player = relationship("Player", back_populates="cluster_analyses")
-    role = relationship("Role", back_populates="cluster_analyses")
+    roles = relationship("Roles", back_populates="cluster_analyses")
 
 class Benchmark(Base):
     __tablename__ = "benchmark"
     benchmark_id = Column(Integer, primary_key=True)
-    role_id = Column(Integer, ForeignKey("role.role_id"))
+    role_id = Column(Integer, ForeignKey("roles.role_id"))
     league_id = Column(Integer, ForeignKey("league.league_id"))
     metric_id = Column(Integer, ForeignKey("metric.metric_id"))
     mean = Column(Numeric(10, 2))
     standard_deviation = Column(Numeric(10, 2))
     
-    role = relationship("Role", back_populates="benchmarks")
+    roles = relationship("Roles", back_populates="benchmarks")
     league = relationship("League", back_populates="benchmarks")
     metric = relationship("Metric", back_populates="benchmarks")
 
