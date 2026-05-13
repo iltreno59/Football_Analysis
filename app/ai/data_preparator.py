@@ -7,56 +7,38 @@ from app.core.db_conn import SessionLocal
 def get_prepared_data():
     db = SessionLocal()
     query = text("""
-        SELECT 
-            p.player_name,
-            m.metric_name,
-            sm.season_metric_value
+        SELECT p.player_name, p.position, m.metric_name, sm.season_metric_value
         FROM season_metric sm
         JOIN player p ON sm.player_id = p.player_id
         JOIN metric m ON sm.metric_id = m.metric_id
-        WHERE sm.season_start_year = '2023'
     """)
     
-    print(">>> Извлечение данных из БД...")
     result = db.execute(query)
-    df_raw = pd.DataFrame(result.fetchall(), columns=['player_name', 'metric_name', 'value'])
+    df_raw = pd.DataFrame(result.fetchall(), columns=['player_name', 'position', 'metric_name', 'value'])
     db.close()
 
-    if df_raw.empty:
-        print("Данные не найдены. Проверь наличие записей в season_metric.")
-        return None
+    if df_raw.empty: return None
 
-    # 1. Матрица "Игрок x Метрики"
-    df_pivot = df_raw.pivot_table(
-        index='player_name', 
-        columns='metric_name', 
-        values='value', 
-        aggfunc='mean'
-    )
+    # Создаем сводную таблицу (индекс — имя и позиция)
+    df_pivot = df_raw.pivot_table(index=['player_name', 'position'], columns='metric_name', values='value').fillna(0)
+
+    def scale_group(group):
+        # Выбираем только числовые столбцы для масштабирования
+        numeric_cols = group.select_dtypes(include=[np.number]).columns.tolist()
+        cols_to_scale = [c for c in numeric_cols if c not in ['Age', 'Appearances', 'Wins', 'Losses']]
+        
+        if not cols_to_scale or len(group) < 2:
+            return group
+            
+        scaler = StandardScaler()
+        group[cols_to_scale] = scaler.fit_transform(group[cols_to_scale].astype(np.float32))
+        return group
+
+    # Масштабируем внутри каждой базовой позиции
+    df_scaled = df_pivot.groupby(level='position', group_keys=False).apply(scale_group)
     
-    # Заполнение пропусков нулями
-    df_pivot = df_pivot.fillna(0)
-
-    # 2. Фильтрация "шума"
-    if 'Min' in df_pivot.columns:
-        df_pivot = df_pivot[df_pivot['Min'] >= 450]
-
-    # 3. Z-масштабирование (Standardization)
-    scaler = StandardScaler()
+    # ПРЕВРАЩАЕМ В ПЛОСКИЙ ВИД: player_name и position становятся обычными колонками
+    df_final = df_scaled.reset_index()
+    df_final = df_final.set_index('player_name')
     
-    # Обучение скейлера и трансформирмация данных
-    data_scaled = scaler.fit_transform(df_pivot)
-    
-    # DataFrame с масштабированными данными для удобства
-    df_scaled = pd.DataFrame(data_scaled, index=df_pivot.index, columns=df_pivot.columns)
-
-    print(f">>> Z-масштабирование завершено.")
-    print(f">>> Итоговая матрица: {df_scaled.shape[0]} игроков на {df_scaled.shape[1]} метрик.")
-    
-    return df_scaled
-
-if __name__ == "__main__":
-    df_final = get_prepared_data()
-    if df_final is not None:
-        print("\nФрагмент подготовленных данных (первые 5 строк и 5 метрик):")
-        print(df_final.iloc[:5, :5])
+    return df_final
