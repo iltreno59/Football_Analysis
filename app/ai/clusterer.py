@@ -1,115 +1,107 @@
 import pandas as pd
 import numpy as np
 from sklearn.cluster import KMeans
-from sklearn.preprocessing import MinMaxScaler, normalize
+from sklearn.preprocessing import StandardScaler
 from .data_preparator import get_prepared_data
 
-def create_style_ratios(df, zone):
-    """
-    Создает производные индексы специализации (Feature Engineering).
-    """
-    idx = pd.DataFrame(index=df.index)
+def create_style_ratios(numeric_data, zone):
+    ratios = pd.DataFrame(index=numeric_data.index)
     
+    # Функция для безопасного извлечения данных
+    def g(name):
+        # В numeric_data колонки УЖЕ в нижнем регистре (мы сделали это в compute_clusters)
+        if name in numeric_data.columns:
+            return numeric_data[name]
+        return pd.Series(0.0, index=numeric_data.index)
+
+    # Используем названия метрик в нижнем регистре, как они приходят из БД
     if zone == 'CM':
-        idx['defensive_mindset'] = (df.get('Tackles', 0) + df.get('Recoveries', 0)) / (df.get('Passes', 1) + 1)
-        idx['attack_involvement'] = (df.get('Shots', 0) + df.get('Touches in box', 0)) / (df.get('Passes', 1) + 1)
-        idx['creative_risk'] = df.get('Through balls', 0) / (df.get('Passes', 1) + 1)
-        
+        ratios['def'] = (g('tackles') + g('interceptions')) / (g('passes') + 1)
+        ratios['atk'] = g('shots') / (g('passes') + 1)
+        ratios['cre'] = (g('through balls') + g('big chances created')) / (g('passes') + 1)
     elif zone == 'FB':
-        idx['wing_aggression'] = (df.get('Crosses', 0) + df.get('Dribbles', 0)) / (df.get('Tackles', 1) + 1)
-        idx['progression_style'] = df.get('Key passes', 0) / (df.get('Passes', 1) + 1)
-        
-    elif zone == 'ST':
-        idx['physicality_ratio'] = df.get('Aerial battles won', 0) / (df.get('Shots', 1) + 1)
-        idx['box_efficiency'] = df.get('Goals', 0) / (df.get('Touches in box', 1) + 1)
-        
+        ratios['wing'] = (g('crosses') + g('dribbles')) / (g('passes') + 1)
+        ratios['def'] = g('tackles') / (g('passes') + 1)
     elif zone == 'CB':
-        idx['proactivity'] = (df.get('Interceptions', 0) + df.get('Tackles', 0)) / (df.get('Clearances', 1) + 1)
-        idx['ball_playing_ratio'] = df.get('Accurate long balls', 0) / (df.get('Passes', 1) + 1)
-
+        ratios['air'] = g('aerial battles won') / (g('tackles') + g('clearances') + 1)
+        ratios['prog'] = g('accurate long balls') / (g('passes') + 1)
     elif zone == 'WG':
-        idx['directness'] = df.get('Shots', 0) / (df.get('Crosses', 1) + 1)
-        idx['dribble_ratio'] = df.get('Dribbles', 0) / (df.get('Passes', 1) + 1)
-
-    elif zone == 'GK':
-        idx['proactivity'] = (df.get('Punches', 0) + df.get('High Claims', 0)) / (df.get('Saves', 1) + 1)
-
-    # Если DataFrame пустой (например, для новой зоны), создаем нейтральную колонку
-    if idx.empty or idx.shape[1] == 0:
-        idx['placeholder'] = 0
-
-    return idx.fillna(0)
+        ratios['drb'] = g('dribbles') / (g('crosses') + 1)
+        ratios['shot'] = g('shots') / (g('passes') + 1)
+    elif zone == 'ST':
+        ratios['fin'] = g('shots on target') / (g('shots') + 1)
+        ratios['vol'] = g('shots') / (g('appearances') + 1)
+    
+    # Если все ratios оказались нулевыми, добавим базовые метрики, чтобы K-Means было за что зацепиться
+    if ratios.sum().sum() == 0:
+        return numeric_data[['passes', 'tackles', 'shots']].copy() if 'passes' in numeric_data.columns else numeric_data
+        
+    return ratios
 
 def compute_clusters():
-    df_scaled = get_prepared_data()
-    if df_scaled is None: return None
+    raw_df = get_prepared_data()
+    if raw_df is None: return {}
 
-    if df_scaled.index.name == 'player_name':
-        df_scaled = df_scaled.reset_index()
-
-    df_numeric = df_scaled.apply(pd.to_numeric, errors='coerce')
+    df_working = raw_df.reset_index()
+    # Приводим к нижнему регистру названия колонок
+    df_working.columns = [c.lower() for c in df_working.columns]
     
+    if 'position' in df_working.columns:
+        df_working['position'] = df_working['position'].astype(str).str.strip().str.upper()
+    
+    if 'name' in df_working.columns and 'player_name' not in df_working.columns:
+        df_working = df_working.rename(columns={'name': 'player_name'})
+
+    # Распределение 4 -> 6 зон
+    MAP = {'GK': 'GK', 'CB': 'DF', 'FB': 'DF', 'CM': 'MF', 'WG': 'FW', 'ST': 'FW'}
     zones_config = {
-        'GK': {'n': 2, 'prefix': 'GK_'},
-        'CB': {'n': 2, 'prefix': 'CB_'}, 
-        'FB': {'n': 2, 'prefix': 'FB_'},
-        'CM': {'n': 3, 'prefix': 'CM_'},
-        'WG': {'n': 2, 'prefix': 'WG_'},
-        'ST': {'n': 2, 'prefix': 'ST_'}
+        'GK': {'n': 2, 'prefix': 'GK_'}, 'CB': {'n': 3, 'prefix': 'CB_'}, 
+        'FB': {'n': 3, 'prefix': 'FB_'}, 'CM': {'n': 4, 'prefix': 'CM_'},
+        'WG': {'n': 3, 'prefix': 'WG_'}, 'ST': {'n': 3, 'prefix': 'ST_'}
     }
 
-    # Распределение по игровым зонам на основе медиан
     player_zones = {}
-    for i, row in df_scaled.iterrows():
-        name = row['player_name']
-        pos = row['position']
-        num_row = df_numeric.iloc[i]
-        
-        target = pos
+    for i, row in df_working.iterrows():
+        pos = str(row['position']).upper()
         if pos == 'DF':
-            target = 'FB' if (num_row.get('Crosses', 0) > 0.5 or num_row.get('Dribbles', 0) > 0.4) else 'CB'
+            target = 'FB' if (row.get('crosses', 0) > 0.5 or row.get('dribbles', 0) > 0.4) else 'CB'
         elif pos == 'MF':
-            target = 'WG' if (num_row.get('Dribbles', 0) > 0.8 or num_row.get('Crosses', 0) > 1.2) else 'CM'
-        elif pos == 'FW':
-            target = 'ST'
-        player_zones[name] = target
+            target = 'WG' if (row.get('dribbles', 0) > 0.8 or row.get('crosses', 0) > 1.2) else 'CM'
+        else:
+            target = 'ST' if pos == 'FW' else pos
+        player_zones[row['player_name']] = target
 
     final_results = {}
+
     for zone, config in zones_config.items():
-        names_in_zone = [n for n, z in player_zones.items() if z == zone]
-        zone_indices = df_scaled[df_scaled['player_name'].isin(names_in_zone)].index
-        zone_data = df_numeric.loc[zone_indices]
+        names = [n for n, z in player_zones.items() if z == zone]
+        zone_df = df_working[df_working['player_name'].isin(names)]
         
-        if len(zone_data) < config['n']: continue
+        if len(zone_df) < config['n']: continue
 
-        # 1. Подготовка базовых метрик (L1 нормализация профиля)
-        cols_to_drop = ['Age', 'Appearances', 'Wins', 'Losses', 'player_id']
-        base_features = zone_data.drop(columns=[c for c in cols_to_drop if c in zone_data.columns]).fillna(0)
-        base_normalized = normalize(base_features.values, norm='l1', axis=1)
-        
-        # 2. Подготовка стилистических коэффициентов
-        style_indices = create_style_ratios(base_features, zone)
-        scaler = MinMaxScaler()
-        scaled_indices = scaler.fit_transform(style_indices)
-        
-        # Усиливаем влияние коэффициентов (вес 2.0)
-        weighted_indices = scaled_indices * 2.0
-        
-        # 3. Соединение данных
-        combined_data = np.hstack([base_normalized, weighted_indices])
+        # Подготовка данных
+        num_data = zone_df.select_dtypes(include=[np.number]).fillna(0)
+        input_data = create_style_ratios(num_data, zone)
 
-        # 4. Кластеризация
-        kmeans = KMeans(
-            n_clusters=config['n'], 
-            init='k-means++', 
-            random_state=42, 
-            n_init=50, 
-            max_iter=1000
-        )
-        labels = kmeans.fit_predict(combined_data)
-        
-        for i, idx_row in enumerate(zone_indices):
-            player_name = df_scaled.loc[idx_row, 'player_name']
-            final_results[player_name] = {'role': f"{config['prefix']}{labels[i] + 1}"}
+        # МАСШТАБИРОВАНИЕ
+        try:
+            # Если данных мало или они константные, StandardScaler может выдать предупреждение,
+            # но это лучше, чем подавать сырые нули.
+            scaler = StandardScaler()
+            features_scaled = scaler.fit_transform(input_data)
+            
+            # Добавим мизерный шум, если точки идентичны (защита от ConvergenceWarning)
+            if np.allclose(features_scaled, features_scaled[0]):
+                features_scaled += np.random.normal(0, 1e-7, features_scaled.shape)
+
+            kmeans = KMeans(n_clusters=config['n'], random_state=42, n_init=20)
+            labels = kmeans.fit_predict(features_scaled)
+            
+            for i, p_name in enumerate(zone_df['player_name']):
+                final_results[p_name] = f"{config['prefix']}{labels[i] + 1}"
+                
+        except Exception as e:
+            print(f"Ошибка в зоне {zone}: {e}")
+            continue
 
     return final_results
