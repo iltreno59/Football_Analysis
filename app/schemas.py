@@ -173,4 +173,5 @@ class ReportCreate(ReportBase):
 class Report(ReportBase, BaseSchema):
     report_id: int
     created_at: datetime
+    user_login: Optional[str] = None
     exercise_in_reports: List[ExerciseInReport] = [] # Список упражнений в отчете

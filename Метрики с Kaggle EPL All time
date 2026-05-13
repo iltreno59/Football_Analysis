@@ -1,0 +1,55 @@
+"metric_id","metric_name","metric_description","metric_category"
+273,"Age",NULL,NULL
+274,"Appearances",NULL,NULL
+275,"Wins",NULL,NULL
+276,"Losses",NULL,NULL
+277,"Goals",NULL,NULL
+278,"Goals per match",NULL,NULL
+279,"Headed goals",NULL,NULL
+280,"Goals with right foot",NULL,NULL
+281,"Goals with left foot",NULL,NULL
+282,"Penalties scored",NULL,NULL
+283,"Freekicks scored",NULL,NULL
+284,"Shots",NULL,NULL
+285,"Shots on target",NULL,NULL
+286,"Shooting accuracy %",NULL,NULL
+287,"Hit woodwork",NULL,NULL
+288,"Big chances missed",NULL,NULL
+289,"Clean sheets",NULL,NULL
+290,"Goals conceded",NULL,NULL
+291,"Tackles",NULL,NULL
+292,"Tackle success %",NULL,NULL
+293,"Last man tackles",NULL,NULL
+294,"Blocked shots",NULL,NULL
+295,"Interceptions",NULL,NULL
+296,"Clearances",NULL,NULL
+297,"Headed Clearance",NULL,NULL
+298,"Clearances off line",NULL,NULL
+299,"Recoveries",NULL,NULL
+300,"Duels won",NULL,NULL
+301,"Duels lost",NULL,NULL
+302,"Successful 50/50s",NULL,NULL
+303,"Aerial battles won",NULL,NULL
+304,"Aerial battles lost",NULL,NULL
+305,"Own goals",NULL,NULL
+306,"Errors leading to goal",NULL,NULL
+307,"Assists",NULL,NULL
+308,"Passes",NULL,NULL
+309,"Passes per match",NULL,NULL
+310,"Big chances created",NULL,NULL
+311,"Crosses",NULL,NULL
+312,"Cross accuracy %",NULL,NULL
+313,"Through balls",NULL,NULL
+314,"Accurate long balls",NULL,NULL
+315,"Saves",NULL,NULL
+316,"Penalties saved",NULL,NULL
+317,"Punches",NULL,NULL
+318,"High Claims",NULL,NULL
+319,"Catches",NULL,NULL
+320,"Sweeper clearances",NULL,NULL
+321,"Throw outs",NULL,NULL
+322,"Goal Kicks",NULL,NULL
+323,"Yellow cards",NULL,NULL
+324,"Red cards",NULL,NULL
+325,"Fouls",NULL,NULL
+326,"Offsides",NULL,NULL

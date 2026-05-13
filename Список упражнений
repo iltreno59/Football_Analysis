@@ -1,0 +1,26 @@
+"exercise_id","exercise_name","exercise_description","difficulty"
+26,"1v1 Finishing Drill","Выход 1 на 1. Реализация (Gls) и точность (SoT).",8
+27,"Cross & Volley","Завершение после фланговых навесов. Влияет на Gls.",7
+28,"Long Range Shooting","Удары из-за штрафной. Точность дальних ударов.",6
+29,"Penalty Shootout","Отработка 11-метровых (PK).",3
+30,"Attacking Overload (3v2)","Численное преимущество. Принятие решений в финальной трети.",9
+31,"Rondo 4v2","Квадрат. Точность передач (PasTotCmp%) под давлением.",5
+32,"Direct Play Transition","Быстрая смена вектора. Точность длинных передач (PasLonCmp%).",8
+33,"Final Third Pass Flow","Комбинации перед штрафной. Влияет на KP и Ast.",6
+34,"Through Ball Timing","Пасы вразрез. Отработка xAG и передач в штрафную.",7
+35,"Triangle Passing","Культура паса и движение после передачи.",4
+36,"1v1 Defensive Stance","Отбор мяча в дуэли. Влияет на TklW.",9
+37,"Zonal Positioning","Расположение в защите. Повышает перехваты (Int).",7
+38,"Header Clearance","Выносы мяча головой. Влияет на Clr.",6
+39,"Shot Blocking Drill","Тренировка блокировки ударов (Blk).",8
+40,"High Pressing Triggers","Прессинг при потере. Отборы в атакующей трети.",9
+41,"Reaction Saves","Удары с близкой дистанции. Процент сейвов (Save%).",9
+42,"Cross Claiming","Игра на выходе при навесах.",7
+43,"GK Distribution","Ввод мяча. Точность передач вратаря.",4
+44,"One-on-One Smothering","Сокращение дистанции. Влияет на PSxG +/-.",10
+45,"Shuttle Runs (Beep Test)","Челночный бег. Выносливость на 90 минут.",10
+46,"Agility Ladder Drills","Координация и скорость ног.",5
+47,"First Touch Control","Прием тяжелых мячей. Процент успешных приемов (Rec%).",6
+48,"Interval Sprints","Спринты для фланговых игроков.",9
+49,"Recovery Possession","Удержание мяча после отбора. Повышает PPM.",7
+50,"Set Piece Defense","Стандарты у своих ворот. Снижает GA.",6

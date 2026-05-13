@@ -129,6 +129,7 @@ class Report(Base):
     report_id = Column(Integer, primary_key=True)
     player_id = Column(Integer, ForeignKey("player.player_id"))
     user_id = Column(Integer, ForeignKey("user.user_id"))
+    user_login = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     player = relationship("Player", back_populates="reports")
