@@ -59,9 +59,9 @@ def compute_clusters():
         df_working = df_working.rename(columns={'name': 'player_name'})
 
     zones_config = {
-        'GK': {'n': 2, 'prefix': 'GK_'}, 'CB': {'n': 3, 'prefix': 'CB_'}, 
-        'FB': {'n': 3, 'prefix': 'FB_'}, 'CM': {'n': 4, 'prefix': 'CM_'},
-        'WG': {'n': 3, 'prefix': 'WG_'}, 'ST': {'n': 3, 'prefix': 'ST_'}
+        'GK': {'n': 3, 'prefix': 'GK_'}, 'CB': {'n': 3, 'prefix': 'CB_'}, 
+        'FB': {'n': 3, 'prefix': 'FB_'}, 'CM': {'n': 5, 'prefix': 'CM_'},
+        'WG': {'n': 3, 'prefix': 'WG_'}, 'ST': {'n': 4, 'prefix': 'ST_'}
     }
 
     player_zones = {}
