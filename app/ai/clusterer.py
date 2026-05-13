@@ -5,7 +5,7 @@ from sklearn.preprocessing import StandardScaler
 from sqlalchemy import text
 from .data_preparator import get_prepared_data
 from app.core.db_conn import SessionLocal
-from app.models import Player, Roles, ClusterAnalysis
+from app.models import Player, Roles, ClusterAnalysis, Benchmark, Metric, SeasonMetric, Team, League
 
 def create_style_ratios(numeric_data, zone):
     ratios = pd.DataFrame(index=numeric_data.index)
@@ -47,6 +47,109 @@ def calculate_soft_probabilities(distances):
     # Добавляем epsilon (1e-5), чтобы избежать деления на ноль.
     inv_distances = 1.0 / (distances + 1e-5)
     return inv_distances / np.sum(inv_distances, axis=1, keepdims=True)
+
+def update_benchmarks():
+    """
+    Обновляет таблицу Benchmark на основе текущих данных ClusterAnalysis и SeasonMetric.
+    Для каждой комбинации (role, league, metric) считает mean и std значения метрики
+    для всех игроков данной роли в данной лиге.
+    """
+    db = SessionLocal()
+    updated_count = 0
+    created_count = 0
+    
+    try:
+        # Получаем все уникальные комбинации role_id и league_id из ClusterAnalysis
+        role_league_pairs = db.query(
+            ClusterAnalysis.role_id,
+            League.league_id
+        ).join(
+            Player, ClusterAnalysis.player_id == Player.player_id
+        ).join(
+            Team, Player.team_id == Team.team_id
+        ).join(
+            League, Team.league_id == League.league_id
+        ).distinct().all()
+        
+        # Получаем все метрики
+        metrics = db.query(Metric).all()
+        
+        for role_id, league_id in role_league_pairs:
+            # Получаем всех игроков в этой роли из этой лиги
+            player_ids = db.query(Player.player_id).join(
+                ClusterAnalysis, Player.player_id == ClusterAnalysis.player_id
+            ).join(
+                Team, Player.team_id == Team.team_id
+            ).join(
+                League, Team.league_id == League.league_id
+            ).filter(
+                ClusterAnalysis.role_id == role_id,
+                League.league_id == league_id
+            ).all()
+            
+            player_ids = [p[0] for p in player_ids]
+            
+            if not player_ids:
+                continue
+            
+            # Для каждого метрика
+            for metric in metrics:
+                # Получаем значения этого метрика для всех игроков этой роли
+                metric_values = db.query(SeasonMetric.season_metric_value).filter(
+                    SeasonMetric.metric_id == metric.metric_id,
+                    SeasonMetric.player_id.in_(player_ids)
+                ).all()
+                
+                # Фильтруем null значения
+                values = [float(v[0]) for v in metric_values if v[0] is not None]
+                
+                if not values:
+                    continue
+                
+                # Считаем статистику
+                mean_val = float(np.mean(values))
+                std_val = float(np.std(values))
+                
+                # Проверяем, существует ли уже Benchmark для этой комбинации
+                benchmark = db.query(Benchmark).filter(
+                    Benchmark.role_id == role_id,
+                    Benchmark.league_id == league_id,
+                    Benchmark.metric_id == metric.metric_id
+                ).first()
+                
+                if benchmark:
+                    # Обновляем существующий Benchmark
+                    benchmark.mean = mean_val
+                    benchmark.standard_deviation = std_val
+                    updated_count += 1
+                else:
+                    # Создаём новый Benchmark
+                    benchmark = Benchmark(
+                        role_id=role_id,
+                        league_id=league_id,
+                        metric_id=metric.metric_id,
+                        mean=mean_val,
+                        standard_deviation=std_val
+                    )
+                    db.add(benchmark)
+                    created_count += 1
+        
+        db.commit()
+        print(f"\n📊 ОБНОВЛЕНЫ БЕНЧМАРКИ:")
+        print(f"   Обновлено: {updated_count} записей")
+        print(f"   Создано: {created_count} новых записей")
+        
+        return updated_count, created_count
+        
+    except Exception as e:
+        db.rollback()
+        print(f"\n❌ ОШИБКА при обновлении бенчмарков: {e}")
+        import traceback
+        traceback.print_exc()
+        return 0, 0
+    
+    finally:
+        db.close()
 
 def save_clusters_to_db(confidence_scores, confidence_threshold=0.3):
     """
@@ -228,6 +331,12 @@ def compute_clusters():
     print("\n" + "=" * 80)
     print(">>> Сохранение результатов кластеризации в БД...")
     save_clusters_to_db(confidence_scores, confidence_threshold=0.3)
+    print("=" * 80)
+    
+    # ===== ОБНОВЛЕНИЕ БЕНЧМАРКОВ =====
+    print("\n" + "=" * 80)
+    print(">>> Обновление бенчмарков на основе новых кластеризаций...")
+    update_benchmarks()
     print("=" * 80)
     
     return final_labels, confidence_scores
