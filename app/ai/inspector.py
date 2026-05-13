@@ -15,16 +15,17 @@ ZONE_METRICS = {
 }
 
 def plot_radar(profiles, zone_name):
-    # Ищем роли этой зоны (например, CB_1, CB_2)
     zone_roles = [r for r in profiles.index if str(r).startswith(zone_name)]
     if not zone_roles: return
 
     rows = profiles.loc[zone_roles]
+    # Проверка регистра: Pandas чувствителен к 'Goals' vs 'goals'
     metrics = [m for m in ZONE_METRICS[zone_name] if m in rows.columns]
     
-    if not metrics: return
+    if not metrics:
+        print(f"!!! Для зоны {zone_name} не найдено ни одной метрики из списка в столбцах: {list(rows.columns)}")
+        return
 
-    # Масштабирование для отрисовки (0...1)
     scaler = MinMaxScaler()
     df_plot = pd.DataFrame(scaler.fit_transform(rows[metrics]), index=rows.index, columns=metrics)
 
@@ -52,17 +53,33 @@ def inspect_results():
         print("!!! Данные не найдены.")
         return
 
-    res_df = pd.DataFrame.from_dict(clusters, orient='index')
-    # Объединяем результаты и статистику по имени игрока (индексу)
-    combined = stats.join(res_df, how='inner')
+    # 1. Превращаем результат кластеризации в DataFrame
+    res_df = pd.DataFrame.from_dict(clusters, orient='index') # Индекс — player_name
     
-    if 'role' not in combined.columns:
-        print("!!! Ошибка: Роли не назначены.")
+    # 2. Подготавливаем stats: если player_name в индексе — сбрасываем, чтобы сделать join
+    if stats.index.name == 'player_name' or 'player_name' not in stats.columns:
+        stats = stats.reset_index()
+    
+    # 3. Объединяем по колонке player_name
+    combined = stats.merge(res_df, left_on='player_name', right_index=True)
+    
+    if combined.empty:
+        print("!!! Ошибка объединения: имена игроков в кластерах и статистике не совпали.")
         return
 
-    # Считаем средний профиль каждой роли
-    role_profiles = combined.groupby('role').mean(numeric_only=True)
+    print("\n>>> РАСПРЕДЕЛЕНИЕ ПО РОЛЯМ:")
+    print(combined['role'].value_counts())
+    print("-" * 30)
 
+    # 4. Группируем. ВАЖНО: убеждаемся, что метрики числовые
+    # Сначала конвертируем всё, кроме имен и ролей, в числа
+    cols_to_numeric = combined.columns.drop(['player_name', 'position', 'role'])
+    combined[cols_to_numeric] = combined[cols_to_numeric].apply(pd.to_numeric, errors='coerce')
+
+    # Считаем среднее для каждой роли
+    role_profiles = combined.groupby('role')[cols_to_numeric].mean()
+
+    # 5. Рисуем радары
     for zone in ZONE_METRICS.keys():
         plot_radar(role_profiles, zone)
 
