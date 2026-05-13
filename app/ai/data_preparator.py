@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sqlalchemy import text
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, RobustScaler
 from app.core.db_conn import SessionLocal
 
 def get_prepared_data():
@@ -19,26 +19,25 @@ def get_prepared_data():
 
     if df_raw.empty: return None
 
-    # Создаем сводную таблицу (индекс — имя и позиция)
     df_pivot = df_raw.pivot_table(index=['player_name', 'position'], columns='metric_name', values='value').fillna(0)
 
+    # Фильтрация по матчам и усреднение
+    if 'Appearances' in df_pivot.columns:
+        df_pivot = df_pivot[df_pivot['Appearances'] >= 10]
+        exclude_cols = ['Age', 'Appearances', 'Wins', 'Losses', 'player_id']
+        cols_to_avg = [c for c in df_pivot.columns if c not in exclude_cols and '%' not in c]
+        
+        for col in cols_to_avg:
+            df_pivot[col] = df_pivot[col] / df_pivot['Appearances']
+
     def scale_group(group):
-        # Выбираем только числовые столбцы для масштабирования
         numeric_cols = group.select_dtypes(include=[np.number]).columns.tolist()
         cols_to_scale = [c for c in numeric_cols if c not in ['Age', 'Appearances', 'Wins', 'Losses']]
+        if not cols_to_scale or len(group) < 2: return group
         
-        if not cols_to_scale or len(group) < 2:
-            return group
-            
-        scaler = StandardScaler()
+        scaler = RobustScaler()
         group[cols_to_scale] = scaler.fit_transform(group[cols_to_scale].astype(np.float32))
         return group
 
-    # Масштабируем внутри каждой базовой позиции
     df_scaled = df_pivot.groupby(level='position', group_keys=False).apply(scale_group)
-    
-    # ПРЕВРАЩАЕМ В ПЛОСКИЙ ВИД: player_name и position становятся обычными колонками
-    df_final = df_scaled.reset_index()
-    df_final = df_final.set_index('player_name')
-    
-    return df_final
+    return df_scaled.reset_index().set_index('player_name')
