@@ -39,9 +39,11 @@ def create_style_ratios(numeric_data, zone):
         
     return ratios
 
-def softmax(distances, T=1.0):
-    exp_dist = np.exp(-distances / T)
-    return exp_dist / np.sum(exp_dist, axis=1, keepdims=True)
+def calculate_soft_probabilities(distances):
+    # Используем инверсию расстояний для более высокой чувствительности.
+    # Добавляем epsilon (1e-5), чтобы избежать деления на ноль.
+    inv_distances = 1.0 / (distances + 1e-5)
+    return inv_distances / np.sum(inv_distances, axis=1, keepdims=True)
 
 def compute_clusters():
     raw_df = get_prepared_data()
@@ -65,12 +67,22 @@ def compute_clusters():
     player_zones = {}
     for i, row in df_working.iterrows():
         pos = str(row['position']).upper()
+        # Статистические триггеры для уточнения роли
+        has_wing_tendency = row.get('crosses', 0) > 1.2 or row.get('dribbles', 0) > 1.0
+        
         if pos == 'DF':
-            target = 'FB' if (row.get('crosses', 0) > 0.5 or row.get('dribbles', 0) > 0.4) else 'CB'
+            # Защитники: фланговые (FB) или центральные (CB)
+            target = 'FB' if has_wing_tendency else 'CB'
         elif pos == 'MF':
-            target = 'WG' if (row.get('dribbles', 0) > 0.8 or row.get('crosses', 0) > 1.2) else 'CM'
+            # Полузащитники: теперь ВСЕ MF идут в CM. 
+            # Бруну и созидатели просто сформируют свой кластер внутри CM (например, CM_1)
+            target = 'CM'
+        elif pos == 'FW':
+            # Нападающие: если много дриблинга/кроссов — вингер (WG), иначе — форвард (ST)
+            target = 'WG' if has_wing_tendency else 'ST'
         else:
-            target = 'ST' if pos == 'FW' else (pos if pos in zones_config else 'CM')
+            target = pos if pos in zones_config else 'CM'
+            
         player_zones[row['player_name']] = target
 
     final_labels = {}
@@ -88,25 +100,31 @@ def compute_clusters():
             scaler = StandardScaler()
             features_scaled = scaler.fit_transform(input_data)
             
-            if np.allclose(features_scaled, features_scaled[0]):
-                features_scaled += np.random.normal(0, 1e-7, features_scaled.shape)
+            # Добавляем Jitter (микро-шум), чтобы разлепить идентичные точки
+            features_scaled += np.random.normal(0, 1e-6, features_scaled.shape)
 
             kmeans = KMeans(n_clusters=config['n'], random_state=42, n_init=30)
             labels = kmeans.fit_predict(features_scaled)
             
+            # Получаем матрицу расстояний до всех центроидов
             distances = kmeans.transform(features_scaled)
-            probs = softmax(distances, T=1.0)
+            
+            # Вычисляем вероятности через инверсию (вместо Softmax)
+            probs = calculate_soft_probabilities(distances)
             
             for i, p_name in enumerate(zone_df['player_name']):
                 c_idx = labels[i]
                 role_name = f"{config['prefix']}{c_idx + 1}"
                 final_labels[p_name] = role_name
+                
+                # Сохраняем результаты с высокой точностью
                 confidence_scores[p_name] = {
                     'role': role_name,
-                    'confidence': round(float(probs[i][c_idx]), 3),
-                    'probabilities': {f"{config['prefix']}{j+1}": round(float(p), 3) for j, p in enumerate(probs[i])}
+                    'confidence': round(float(probs[i][c_idx]), 4),
+                    'probabilities': {f"{config['prefix']}{j+1}": round(float(p), 4) for j, p in enumerate(probs[i])}
                 }
         except Exception as e:
+            print(f"Error in clustering {zone}: {e}")
             continue
 
     return final_labels, confidence_scores
