@@ -51,11 +51,12 @@ def calculate_soft_probabilities(distances):
 def save_clusters_to_db(confidence_scores, confidence_threshold=0.3):
     """
     Сохраняет результаты кластеризации в БД с фильтром по уверенности.
-    Перед добавлением новой записи удаляет все старые записи по игроку (избегает засорения БД).
+    Игрок может быть причислен к НЕСКОЛЬКИМ ролям одновременно (если вероятность >= порога).
+    Перед добавлением новых записей удаляет все старые (избегает засорения БД).
     
     Args:
-        confidence_scores: Dict с результатами (player_name -> {role, confidence, ...})
-        confidence_threshold: Минимальный уровень уверенности (по умолчанию 0.3)
+        confidence_scores: Dict с результатами (player_name -> {role, confidence, probabilities: {...}})
+        confidence_threshold: Минимальный уровень уверенности для сохранения роли (по умолчанию 0.3)
     
     Returns:
         (successful_count, skipped_count)
@@ -67,18 +68,6 @@ def save_clusters_to_db(confidence_scores, confidence_threshold=0.3):
     
     try:
         for player_name, result in confidence_scores.items():
-            confidence = result.get('confidence', 0)
-            
-            # Пропускаем если уверенность ниже порога
-            if confidence < confidence_threshold:
-                skipped += 1
-                continue
-            
-            role_name = result.get('role')
-            if not role_name:
-                skipped += 1
-                continue
-            
             # Получаем игрока по имени
             player = db.query(Player).filter(Player.player_name == player_name).first()
             if not player:
@@ -92,41 +81,54 @@ def save_clusters_to_db(confidence_scores, confidence_threshold=0.3):
             ).delete()
             deleted_old += old_records
             
-            # Извлекаем зону из имени роли (например, 'CM_1' -> 'CM')
-            zone = role_name.split('_')[0]
+            # Получаем вероятности по ВСЕМ ролям
+            probabilities = result.get('probabilities', {})
             
-            # Получаем или создаём роль в БД
-            role = db.query(Roles).filter(
-                Roles.role_name == role_name,
-                Roles.zone == zone
-            ).first()
-            
-            if not role:
-                # Создаём новую роль
-                role = Roles(
-                    role_name=role_name,
-                    zone=zone,
-                    role_description=f"Автоматически определённая роль {role_name}"
+            # Сохраняем все роли с вероятностью >= порога
+            roles_added = 0
+            for role_name, confidence in probabilities.items():
+                if confidence < confidence_threshold:
+                    continue
+                
+                # Извлекаем зону из имени роли (например, 'CM_1' -> 'CM')
+                zone = role_name.split('_')[0]
+                
+                # Получаем или создаём роль в БД
+                role = db.query(Roles).filter(
+                    Roles.role_name == role_name,
+                    Roles.zone == zone
+                ).first()
+                
+                if not role:
+                    # Создаём новую роль
+                    role = Roles(
+                        role_name=role_name,
+                        zone=zone,
+                        role_description=f"Автоматически определённая роль {role_name}"
+                    )
+                    db.add(role)
+                    db.flush()  # Чтобы получить role_id
+                
+                # Создаём запись анализа для этой роли
+                analysis = ClusterAnalysis(
+                    player_id=player.player_id,
+                    role_id=role.role_id,
+                    trust_score=float(confidence)
                 )
-                db.add(role)
-                db.flush()  # Чтобы получить role_id
+                db.add(analysis)
+                roles_added += 1
             
-            # Создаём новый анализ (старые уже удалены)
-            analysis = ClusterAnalysis(
-                player_id=player.player_id,
-                role_id=role.role_id,
-                trust_score=float(confidence)
-            )
-            db.add(analysis)
-            
-            successful += 1
+            if roles_added > 0:
+                successful += 1
+            else:
+                skipped += 1
         
         # Фиксируем все изменения
         db.commit()
         print(f"\n✅ СОХРАНЕНО В БД:")
-        print(f"   Успешно: {successful} новых записей")
+        print(f"   Игроков с ролями (confidence >= {confidence_threshold}): {successful}")
         print(f"   Удалено старых записей: {deleted_old}")
-        print(f"   Пропущено (confidence < {confidence_threshold}): {skipped} записей")
+        print(f"   Пропущено (нет ролей >= {confidence_threshold}): {skipped} записей")
         
         return successful, skipped
         
