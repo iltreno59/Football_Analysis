@@ -198,3 +198,85 @@ class PlayerListOut(BaseModel):
     position: Optional[str] = None
     team_id: Optional[int] = None
     team: Optional[Team] = None
+
+
+class PlayerTeamUpdate(BaseModel):
+    """Смена команды игрока (только admin)."""
+    team_id: int
+
+
+class TrainingProgramRequest(BaseModel):
+    season_start_year: Optional[int] = None
+
+
+class ClusterRoleRow(BaseModel):
+    analysis_id: int
+    role_id: Optional[int] = None
+    role_name: Optional[str] = None
+    zone: Optional[str] = None
+    trust_score: Optional[float] = None
+
+
+class RoleProfileResponse(BaseModel):
+    player_id: int
+    player_name: str
+    primary_role: Optional[ClusterRoleRow] = None
+    analyses: List[ClusterRoleRow] = []
+
+
+class PeerMetricRow(BaseModel):
+    metric_id: int
+    metric_name: str
+    season_start_year: Optional[int] = None
+    value: float
+    benchmark_mean: float
+    benchmark_std: float
+    z_score: float
+
+
+class PeerComparisonResponse(BaseModel):
+    player_id: int
+    player_name: str
+    role_id: Optional[int] = None
+    role_name: Optional[str] = None
+    league_id: Optional[int] = None
+    season_start_year: Optional[int] = None
+    error: Optional[str] = None
+    metrics: List[PeerMetricRow] = []
+
+
+class TrainingProgramResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    success: bool
+    error: Optional[str] = None
+    message: Optional[str] = None
+    player_name: Optional[str] = None
+    role: Optional[str] = None
+    report_id: Optional[int] = None
+    deficit_count: Optional[int] = None
+    deficits: Optional[list] = None
+    exercises_count: Optional[int] = None
+    exercises: Optional[list] = None
+
+
+class ReportListItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    report_id: int
+    player_id: Optional[int] = None
+    user_id: Optional[int] = None
+    user_login: Optional[str] = None
+    created_at: datetime
+    player_name: Optional[str] = None
+
+
+class ReportDetailOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    report_id: int
+    player_id: Optional[int] = None
+    user_id: Optional[int] = None
+    user_login: Optional[str] = None
+    created_at: datetime
+    exercise_in_reports: List[ExerciseInReport] = []

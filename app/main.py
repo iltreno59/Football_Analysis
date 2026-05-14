@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routers import auth, players
+from app.api.routers import auth, catalog, players, reports, frontend
 
 app = FastAPI(title="Football Analysis API", version="0.1.0")
 
@@ -17,7 +17,10 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(catalog.router, prefix="/api/v1")
 app.include_router(players.router, prefix="/api/v1")
+app.include_router(reports.router, prefix="/api/v1")
+app.include_router(frontend.router)  # Без префикса, т.к. он уже определён в роутере
 
 
 @app.get("/health")

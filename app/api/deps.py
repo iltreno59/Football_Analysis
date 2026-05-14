@@ -100,3 +100,22 @@ def get_db_rls(
         raise
     finally:
         db.close()
+
+
+def require_roles(*allowed: str):
+    """Разрешает доступ только указанным значениям user.role (без учёта регистра)."""
+
+    allowed_l = {a.strip().lower() for a in allowed}
+
+    def _dep(
+        user: Annotated[CurrentUser, Depends(get_current_user)],
+    ) -> CurrentUser:
+        r = (user.role or "").strip().lower()
+        if r not in allowed_l:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Недостаточно прав для этой операции",
+            )
+        return user
+
+    return _dep
