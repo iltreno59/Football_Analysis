@@ -175,3 +175,26 @@ class Report(ReportBase, BaseSchema):
     created_at: datetime
     user_login: Optional[str] = None
     exercise_in_reports: List[ExerciseInReport] = [] # Список упражнений в отчете
+
+
+# --- API (аутентификация и списки) ---
+class LoginRequest(BaseModel):
+    user_login: str = Field(..., min_length=1)
+    password: str = Field(..., min_length=1)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class PlayerListOut(BaseModel):
+    """Игрок в списке с опциональной командой (для ответа GET /players)."""
+    model_config = ConfigDict(from_attributes=True)
+
+    player_id: int
+    player_name: str
+    birth_date: Optional[date] = None
+    position: Optional[str] = None
+    team_id: Optional[int] = None
+    team: Optional[Team] = None
