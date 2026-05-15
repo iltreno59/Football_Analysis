@@ -6,7 +6,7 @@ from typing import Annotated, Generator, Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError
+from jose import jwt, JWTError
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 

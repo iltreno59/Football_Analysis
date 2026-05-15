@@ -5,7 +5,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from jose import jwt
+from jose import jwt, JWTError
 
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-only-change-in-production")
 JWT_ALGORITHM = "HS256"
