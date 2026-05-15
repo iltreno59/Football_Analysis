@@ -20,7 +20,7 @@ def get_prepared_data():
     if df_raw.empty:
         return None
 
-    # Создаем сводную таблицу
+    # Создание сводной таблцицы
     df_pivot = df_raw.pivot_table(index=['player_name', 'position'], columns='metric_name', values='value').fillna(0)
 
     # Базовая фильтрация по объему данных (минимум 10 матчей)
@@ -49,7 +49,7 @@ def get_prepared_data():
         group[cols_to_scale] = scaler.fit_transform(group[cols_to_scale].astype(np.float32))
         return group
 
-    # Группируем по позициям и масштабируем
+    # Группировка по позициям и масштабирование
     df_scaled = df_pivot.groupby('position', group_keys=False).apply(scale_group)
     
     return df_scaled.reset_index()

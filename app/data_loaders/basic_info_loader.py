@@ -7,12 +7,11 @@ def fill_base_from_kaggle(csv_path=r"D:\\Football_Analysis\\app\\data_loaders\\d
     db = SessionLocal()
     
     try:
-        # Читаем файл
+        # Чтение файла
         print(f">>> Чтение файла: {csv_path}")
         df = pd.read_csv(csv_path)
 
-        # 1. СОЗДАЕМ ЛИГУ
-        # В датасете нет колонки с лигой, поэтому создаем её вручную
+        # 1. СОЗДАНИЕ ЛИГИ (Колонка 'League')
         league_name = 'English Premier League'
         db_league = db.query(League).filter_by(league_name=league_name).first()
         if not db_league:
@@ -21,7 +20,7 @@ def fill_base_from_kaggle(csv_path=r"D:\\Football_Analysis\\app\\data_loaders\\d
             db.add(db_league)
             db.flush() # Получаем ID лиги для команд
 
-        # 2. СОЗДАЕМ КОМАНДЫ (Колонка 'Club')
+        # 2. СОЗДАНИЕ КОМАНД (Колонка 'Club')
         unique_clubs = df['Club'].unique()
         team_map = {}
         
@@ -34,7 +33,7 @@ def fill_base_from_kaggle(csv_path=r"D:\\Football_Analysis\\app\\data_loaders\\d
                 db.flush()
             team_map[c_name] = db_team.team_id
 
-        # 3. СОЗДАЕМ ИГРОКОВ (Колонки 'Name', 'Club', 'Position')
+        # 3. СОЗДАНИЕ ИГРОКОВ (Колонки 'Name', 'Club', 'Position')
         print(">>> Регистрация игроков...")
         new_players_count = 0
         
@@ -43,7 +42,7 @@ def fill_base_from_kaggle(csv_path=r"D:\\Football_Analysis\\app\\data_loaders\\d
             club_name = row['Club']
             raw_pos = str(row['Position'])
 
-            # Маппинг позиций под твой формат (GK, DF, MF, FW)
+            # Маппинг позиций
             if "Goalkeeper" in raw_pos:
                 p_pos = "GK"
             elif "Defender" in raw_pos:
@@ -55,11 +54,11 @@ def fill_base_from_kaggle(csv_path=r"D:\\Football_Analysis\\app\\data_loaders\\d
             else:
                 p_pos = "MF" # Заглушка по умолчанию
 
-            # Берем ID команды из нашего маппинга
+            # ID команды из маппинга
             t_id = team_map.get(club_name)
             
             if t_id:
-                # Проверяем, нет ли уже такого игрока в этом клубе
+                # Проверка уникальности
                 exists = db.query(Player).filter_by(player_name=p_name, team_id=t_id).first()
                 if not exists:
                     db.add(Player(

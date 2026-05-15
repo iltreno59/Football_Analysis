@@ -1,0 +1,14 @@
+FROM apache/superset:latest
+
+USER root
+
+# Устанавливаем системные зависимости для работы с PostgreSQL
+RUN apt-get update && apt-get install -y libpq-dev gcc && rm -rf /var/lib/apt/lists/*
+
+# Устанавливаем драйвер через системный pip
+RUN pip install --no-cache-dir psycopg2-binary pg8000
+
+# Делаем пакеты доступными для виртуального окружения через символические ссылки (на всякий случай)
+RUN ln -s /usr/local/lib/python3.10/site-packages/psycopg2* /app/.venv/lib/python3.10/site-packages/ || true
+
+USER superset

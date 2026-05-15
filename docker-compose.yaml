@@ -1,0 +1,87 @@
+version: "3.8"
+
+services:
+  # PostgreSQL база данных
+  db:
+    image: postgres:15-alpine
+    container_name: football_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-football_analysis_2024}
+      POSTGRES_DB: superset_metadata
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - football_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Apache Superset
+  superset:
+    build:
+      context: .
+      dockerfile: Dockerfile.superset
+    container_name: superset_app
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8088"
+    environment:
+      # Основные переменные Superset
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME:-admin}
+      SUPERSET_ADMIN_EMAIL: ${SUPERSET_ADMIN_EMAIL:-admin@example.com}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:-admin}
+      
+      # БД для метаданных Superset
+      SQLALCHEMY_DATABASE_URI: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-football_analysis_2024}@db:5432/superset_metadata
+      
+      # Redis (опционально для кэша)
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      
+      # Другие переменные
+      FLASK_ENV: production
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      # Прокидываем конфиг Superset
+      - ./superset_config.py:/app/pythonpath/superset_config.py:ro
+    networks:
+      - football_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8088/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # Redis для кэширования (опционально)
+  redis:
+    image: redis:7-alpine
+    container_name: football_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - football_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:
+    driver: local
+
+networks:
+  football_network:
+    driver: bridge
